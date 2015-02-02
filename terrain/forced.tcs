@@ -1,0 +1,28 @@
+// Use user-specified level of detail for the environemt.
+
+#version 420
+
+// Quad out
+layout(vertices = 4) out;
+// Coordinates in out out
+in  vec3 vPosition[];
+out vec3 tcPosition[];
+
+// Forced LOD
+uniform float LOD;
+
+void main()
+{
+   //  Coordinate passthrough
+   tcPosition[gl_InvocationID] = vPosition[gl_InvocationID];
+   //  Only the first vertex per patch needs to set the patch parameters
+   if (gl_InvocationID == 0)
+   {
+      gl_TessLevelInner[0] = LOD;
+      gl_TessLevelInner[1] = LOD;
+      gl_TessLevelOuter[0] = LOD;
+      gl_TessLevelOuter[1] = LOD;
+      gl_TessLevelOuter[2] = LOD;
+      gl_TessLevelOuter[3] = LOD;
+   }
+}

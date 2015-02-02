@@ -1,0 +1,38 @@
+// Evaluation shader when using the quads display as opposed to terrain.
+
+#version 420
+
+// Quads in
+layout(quads) in;
+
+in vec3 tcPosition[];
+
+out vec3 tePosition;
+out vec4 tePatchDistance;
+
+uniform sampler2D terrain;
+uniform mat4 modelViewProjectionSecond;
+uniform float heightFactor;
+
+void main()
+{
+   // TessCoords range from 0-1
+   // Tessellate evenly
+   float u = gl_TessCoord.x;
+   float v = gl_TessCoord.y;
+   vec3 a = mix(tcPosition[0], tcPosition[1], 1.0-u);
+   vec3 b = mix(tcPosition[2], tcPosition[3], u);
+   tePosition = mix(a, b, v);
+
+   // Used in the geometry shader
+   tePatchDistance = vec4(u, v, 1-u, 1-v);
+
+   // x/z position to be used as our texture coordinate (translate +0.5,+0.5)
+   vec2 texcoord = vec2(tePosition.x+0.5, tePosition.z+0.5);
+
+   // Red color of the texture map is height
+   float height;
+   height = texture(terrain, texcoord).r;
+   
+   gl_Position = modelViewProjectionSecond * vec4(tePosition.x, height/heightFactor, tePosition.z, 1);
+}

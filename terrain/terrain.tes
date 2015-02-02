@@ -1,0 +1,53 @@
+// Evaluation shader when using the terrain display as opposed to quads.
+
+#version 420
+
+// Quads in
+layout(quads) in;
+
+const float noiseAdjustment = 0.1; // How much the noise map (blue) alters height
+
+in vec3 tcPosition[];
+
+out vec2 texcoord;
+out float height;
+out float roadVal;
+out vec3 normal;
+
+uniform sampler2D terrain;
+uniform float heightFactor;
+uniform mat4 modelViewProjectionSecond;
+uniform float dPerPix;
+
+void main()
+{
+   // TessCoords range from 0-1
+   // Tessellate in even quads
+   float u = gl_TessCoord.x;
+   float v = gl_TessCoord.y;
+   vec3 a = mix(tcPosition[0], tcPosition[1], 1.0-u);
+   vec3 b = mix(tcPosition[2], tcPosition[3], u);
+   vec3 pos = mix(a, b, v);
+
+   // Texture coordinates is just out x & z position once again
+   texcoord = vec2(pos.x+0.5,pos.z+0.5);
+
+   // Get the texture color of this point
+   vec4 terrianCol = texture(terrain, texcoord);
+
+   // Read in terrian color values
+   // RED = heightmap
+   float h = terrianCol.r / heightFactor;
+   // BLUE = noise
+   height = h + (noiseAdjustment*terrianCol.b);
+   // GREEN = roadVal value
+   roadVal = terrianCol.g;
+
+   // Get normal by comparing this point's pixel with the surrounding pixels in the height map
+   float normX = texture(terrain, texcoord + vec2(-dPerPix,0.0)) - texture(terrain, texcoord + vec2(+dPerPix,0.0));
+   float normZ = texture(terrain, texcoord + vec2(0.0,+dPerPix)) - texture(terrain, texcoord + vec2(0.0,-dPerPix));
+   normal = vec3(normX*heightFactor,1.0,normZ*heightFactor);
+
+   vec4 vertPos = vec4(pos.x, h, pos.z, 1);
+   gl_Position = modelViewProjectionSecond * vertPos;
+}

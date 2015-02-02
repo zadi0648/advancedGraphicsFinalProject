@@ -1,0 +1,13 @@
+newmtl knightArmorShiny_knight_FR1METAL_001
+illum 4
+# Diffuse
+Kd 0.50 0.50 0.51
+# Ambient
+Ka 0.66 0.67 0.68
+# Transmission filter
+Tf 0.00 0.00 0.00
+Ni 0.50
+# Specular color
+Ks 1.00 1.00 0.50
+# Specular coefficient (shininess)
+Ns 100.0

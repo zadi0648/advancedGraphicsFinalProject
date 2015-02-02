@@ -1,0 +1,117 @@
+// Determine what the level of detail should be depending on the camera location.
+
+#version 420
+
+// Quad out
+layout(vertices = 4) out;
+// Coordinates in out out
+in  vec3 vPosition[];
+out vec3 tcPosition[];
+
+uniform mat4 modelViewProjectionMain;
+uniform vec2 sizeOfScreen;
+
+const float distPerLod = 200.0;
+
+bool onScreen(vec4 l1, vec4 l2, vec4 l3, vec4 l4) {
+   const float behind = -10.0;
+   // Create a bool for each point
+   bool on1 = true;
+   bool on2 = true;
+   bool on3 = true;
+   bool on4 = true;
+   // #1
+   // Behind camera?
+   if (l1.z < behind) on1 = false;
+   if (l2.z < behind) on2 = false;
+   if (l3.z < behind) on3 = false;
+   if (l4.z < behind) on4 = false;
+   // Otherwise outside of screen?
+   if ((l1.x > +sizeOfScreen.x) || (l1.x < -sizeOfScreen.x) ||
+      (l1.y > +sizeOfScreen.y) || (l1.y < -sizeOfScreen.y)) {
+      on1 = false;
+   }
+   if ((l2.x > +sizeOfScreen.x) || (l2.x < -sizeOfScreen.x) ||
+      (l2.y > +sizeOfScreen.y) || (l2.y < -sizeOfScreen.y)) {
+      on2 = false;
+   }
+   if ((l3.x > +sizeOfScreen.x) || (l3.x < -sizeOfScreen.x) ||
+      (l3.y > +sizeOfScreen.y) || (l3.y < -sizeOfScreen.y)) {
+      on3 = false;
+   }
+   if ((l4.x > +sizeOfScreen.x) || (l4.x < -sizeOfScreen.x) ||
+      (l4.y > +sizeOfScreen.y) || (l4.y < -sizeOfScreen.y)) {
+      on4 = false;
+   }
+   // All must be false in order to return false
+   return (on1 || on2 || on3 || on4);
+}
+
+// Used to compute what tessellation level we should use depending on the given distance
+float computeTessellationLevel(float dist) {
+   float level = round(distPerLod/dist);
+   level = max(min(level,8),1);
+   return level;
+}
+
+void main()
+{
+   // Coordinate passthrough
+   tcPosition[gl_InvocationID] = vPosition[gl_InvocationID];
+   // Only the first vertex needs to set the patch parameters
+   if (gl_InvocationID == 0)
+   {
+      // Calculate distance of each side for the outer points
+      vec3 temp;
+      vec4 fntSide;
+      vec4 rghSide;
+      vec4 bckSide;
+      vec4 lefSide;
+      // Front side 
+      temp = (vPosition[1] + vPosition[2])/2.0;
+      fntSide = modelViewProjectionMain * vec4(temp, 1.0);
+      // Right side 
+      temp = (vPosition[1] + vPosition[0])/2.0;
+      rghSide = modelViewProjectionMain * vec4(temp, 1.0);
+      // Back side 
+      temp = (vPosition[3] + vPosition[0])/2.0;
+      bckSide = modelViewProjectionMain * vec4(temp, 1.0);
+      // Left side 
+      temp = (vPosition[3] + vPosition[2])/2.0;
+      lefSide = modelViewProjectionMain * vec4(temp, 1.0);
+
+      // Get this patch's 'middle' point by averaging the position of the four corners
+      vec3 middlePoint = (vPosition[0] + vPosition[1] + vPosition[2] + vPosition[3])/4.0;
+
+      // Get distance from this point after being transformed by mvp matrix
+      vec4 midProjectPos = modelViewProjectionMain * vec4(middlePoint, 1.0);
+
+      // Otherwise compute the tessallation level we should use depending on the distance
+      if (onScreen(fntSide, rghSide, bckSide, lefSide))
+      {
+         float i = computeTessellationLevel(midProjectPos.z);
+         // Inner tessellation (use calculated distance)
+         gl_TessLevelInner[0] = i;
+         gl_TessLevelInner[1] = i;
+         // Calculate the outer tesselation levels to match the patch next to it
+         // Front
+         gl_TessLevelOuter[0] = computeTessellationLevel(fntSide.z);
+         // Right
+         gl_TessLevelOuter[1] = computeTessellationLevel(rghSide.z);
+         // Back
+         gl_TessLevelOuter[2] = computeTessellationLevel(bckSide.z);
+         // Left
+         gl_TessLevelOuter[3] = computeTessellationLevel(lefSide.z);
+      }
+      // Don't even bother drawing if it is off screen
+      else
+      {
+         gl_TessLevelInner[0] = 0;
+         gl_TessLevelInner[1] = 0;
+         gl_TessLevelOuter[0] = 0;
+         gl_TessLevelOuter[1] = 0;
+         gl_TessLevelOuter[2] = 0;
+         gl_TessLevelOuter[3] = 0;
+      }
+   }
+}
